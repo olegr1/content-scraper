@@ -1,0 +1,15 @@
+{
+  "name": "content-scraper",
+  "version": "1.0.0",
+  "description": "Saves t-shirt information from shirts4mike.com",
+  "main": "scraper.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Oleg Rybin",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.2",
+    "json2csv": "^3.9.1"
+  }
+}
