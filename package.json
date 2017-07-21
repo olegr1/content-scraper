@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "description": "Saves t-shirt information from shirts4mike.com",
   "main": "scraper.js",
-  "scripts": { "start" : "node scraper.js" },
+  "scripts": {
+    "start": "node scraper.js"
+  },
   "author": "Oleg Rybin",
   "license": "MIT",
   "dependencies": {
-    "cheerio": "^1.0.0-rc.2",
     "json2csv": "^3.9.1",
-    "moment": "^2.18.1"
+    "moment": "^2.18.1",
+    "x-ray": "^2.3.2"
   },
   "repository": {
     "type": "git",

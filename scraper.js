@@ -1,60 +1,36 @@
 const http = require('http');
 const fs = require('fs');
+const Xray = require('x-ray'); //Scraper library
+const json2csv = require('json2csv'); //CSV library
+const moment = require('moment'); //Time formatting library
 
-const cheerio = require('cheerio'); //Slightly general-purpose but commonly used for scraping, very popular and stable library
-const json2csv = require('json2csv'); //Popular library for converting JSON to CSV
-
-const moment = require('moment'); //Date-formatting library
-
-//A few global settings
-const siteUrl = 'http://www.shirts4mike.com';
-const mainPage = 'shirts.php';
-const tshirtsDetails = [];
-
-let tshirtLinksCount = 0;
-
-function getPageHtml(url, callback){
-
-    console.log(`Getting HTML for: ${url}`);
-
-    try{                
-        const request = http.get(url, (response) => {
-
-            //If the response is OK...
-            if(response.statusCode === 200){
-
-                let html = "";
-
-                response.on('data', chunk => {
-                    html += chunk;
-                }); 
-
-                //...pass the HTML of the page into the provided callback
-                response.on('end', () => {
-                    callback(html);                    
-                });            
-
-            }else{
-
-                let errorMessage = `Error ${response.statusCode} ${http.STATUS_CODES[response.statusCode]}: ${url}`;
-                logError(errorMessage);
-
-                callback(''); //Empty string is passed to the callback in case of error
-            }    
-        });
-
-        request.on('error', (error) => {
-            let errorMessage = `Unable to connect to ${error.host}`;
-            logError(errorMessage);
-
-            callback(''); 
-        });
-
-    }catch(error){
-        logError(error.message);
-        callback(''); 
+//X-ray scraper object with filters defined
+const xray = new Xray({
+    filters: {
+        removePriceFromTitle: function (fullTitle) {
+            return fullTitle.substr(fullTitle.indexOf(" ") + 1);
+        },
+        getFormattedTime: function (time) {
+            return moment().format('YYYY-MM-DD, LT Z');
+        }
     }
-}
+});
+
+//Start scraping
+xray('1http://www.shirts4mike.com/shirts.php', '.products > li',
+[{
+    title: xray('a@href', '.shirt-details h1 | removePriceFromTitle'),
+    price: xray('a@href', '.shirt-details .price'),
+    imageUrl: xray('a@href', '.shirt-picture span img@src'),
+    url: 'a@href',
+    time: "time | getFormattedTime"
+}])(function(error, tshirtDetails) {   
+    if(error){
+        logError("Error: cannot connect to http://www.shirts4mike.com")
+    }else{        
+        saveTshirtDetails(tshirtDetails);
+    }
+});
 
 function logError(errorMessage){
 
@@ -75,60 +51,7 @@ function logError(errorMessage){
     }
 }
 
-function processTshirtLinks(html){
-
-    if(html !== ''){
-
-        //Load HTML of into Cheerio for manipulation
-        const $ = cheerio.load(html);       
-
-        //Get links to individual t-shirt pages
-        let $links = $('.products > li > a'); 
-        
-        $links.each((i, element)=>{
-
-            //Extract each link's URL
-            let shirtPageUrl = $(element).attr('href');
-
-            //Get HTML of the t-shirt page
-            getPageHtml(siteUrl + "/" + shirtPageUrl, (html) => {
-
-                //Pass the HTML to the scraper method
-                scrapeTshirtDetails(shirtPageUrl, html);
-            });
-        });
-
-        tshirtLinksCount = $links.length;        
-    }
-}
-
-function scrapeTshirtDetails(url, html){  
-    if(html !== ''){
-        //Load HTML of into Cheerio for scraping
-        const $ = cheerio.load(html);    
-        
-        //Separate the title from price
-        let fullTitle = $('.shirt-details h1').text();
-        let title = fullTitle.substr(fullTitle.indexOf(" ") + 1);
-
-        //Create a t-shirt object containing relevant data and push it to an array
-        let tshirt = {};
-            tshirt.title =  title;        
-            tshirt.price = $('.shirt-details .price').text();
-            tshirt.imageUrl = siteUrl + "/" + $('.shirt-picture img').attr('src');
-            tshirt.url = siteUrl + "/" + url;
-            tshirt.time = moment().format('YYYY-MM-DD, LT Z');
-
-        tshirtsDetails.push(tshirt);        
-    }
-
-    //If all t-shirt pages were processed, save the data 
-    if(tshirtsDetails.length === tshirtLinksCount) {
-        saveTshirtDetails();
-    }
-}
-
-function saveTshirtDetails(){
+function saveTshirtDetails(tshirtsDetails){
 
     //Set CSV file options
     const csvDirName = "./data";
@@ -144,8 +67,9 @@ function saveTshirtDetails(){
     }
 
     //Write the generated CSV to a file in the data folder
-    fs.writeFileSync(`./data/${moment().format('YYYY-MM-DD')}.csv`, csv);
+    try{        
+        fs.writeFileSync(`./data/${moment().format('YYYY-MM-DD')}.csv`, csv);
+    }catch(error){
+        logError("Error: cannot write to CSV, the file may be open or locked");
+    }
 }
-
-//Run the app with http://shirts4mike.com/shirts.php as the entry point
-getPageHtml(siteUrl + "/" + mainPage, processTshirtLinks);
