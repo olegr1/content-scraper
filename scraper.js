@@ -17,7 +17,7 @@ const xray = new Xray({
 });
 
 //Start scraping
-xray('1http://www.shirts4mike.com/shirts.php', '.products > li',
+xray('http://www.shirts4mike.com/shirts.php', '.products > li',
 [{
     title: xray('a@href', '.shirt-details h1 | removePriceFromTitle'),
     price: xray('a@href', '.shirt-details .price'),
